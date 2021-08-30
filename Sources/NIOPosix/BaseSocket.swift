@@ -56,6 +56,10 @@ import struct WinSDK.FILE_DISPOSITION_INFO
 import struct WinSDK.socklen_t
 
 import CNIOWindows
+#elseif os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+import CNIODarwin
+#elseif os(Linux) || os(FreeBSD) || os(Android)
+import CNIOLinux
 #endif
 
 protocol Registration {
@@ -115,6 +119,18 @@ extension sockaddr_storage {
         }
     }
 
+    /// Converts the `socketaddr_storage` to a `sockaddr_nl`.
+    ///
+    /// This will crash if `ss_family` != AF_NETLINK!
+    mutating func convert() -> sockaddr_nl {
+        precondition(self.ss_family == NIOBSDSocket.AddressFamily.netlink.rawValue)
+        return withUnsafePointer(to: &self) {
+            $0.withMemoryRebound(to: sockaddr_nl.self, capacity: 1) {
+                $0.pointee
+            }
+        }
+    }
+
     /// Converts the `socketaddr_storage` to a `SocketAddress`.
     mutating func convert() -> SocketAddress {
         switch NIOBSDSocket.AddressFamily(rawValue: CInt(self.ss_family)) {
@@ -126,6 +142,8 @@ extension sockaddr_storage {
             return SocketAddress(sockAddr)
         case .unix:
             return SocketAddress(self.convert() as sockaddr_un)
+        case .netlink:
+            return SocketAddress(self.convert() as sockaddr_nl)
         default:
             fatalError("unknown sockaddr family \(self.ss_family)")
         }
@@ -147,6 +165,10 @@ extension UnsafeMutablePointer where Pointee == sockaddr {
             }
         case .unix:
             return self.withMemoryRebound(to: sockaddr_un.self, capacity: 1) {
+                SocketAddress($0.pointee)
+            }
+        case .netlink:
+            return self.withMemoryRebound(to: sockaddr_nl.self, capacity: 1) {
                 SocketAddress($0.pointee)
             }
         default:

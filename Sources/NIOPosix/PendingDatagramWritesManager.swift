@@ -42,6 +42,8 @@ private struct PendingDatagramWrite {
             }
         case .unixDomainSocket:
             fatalError("UDS with datagrams is currently not supported")
+        case .netlinkSocket:
+            fatalError("NLS with datagrams is currently not supported")
         }
     }
 }

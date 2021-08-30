@@ -895,6 +895,8 @@ extension DatagramChannel: MulticastChannel {
         // Ok, we now have reason to believe this will actually work. We need to pass this on to the socket.
         do {
             switch (group, device?.address) {
+            case (.netlinkSocket, _):
+                preconditionFailure("Should not be reachable, NETLINK sockets are never multicast addresses")
             case (.unixDomainSocket, _):
                 preconditionFailure("Should not be reachable, UNIX sockets are never multicast addresses")
             case (.v4(let groupAddress), .some(.v4(let interfaceAddress))):
@@ -913,7 +915,12 @@ extension DatagramChannel: MulticastChannel {
                 // IPv6 binding with no specific interface requested.
                 let multicastRequest = ipv6_mreq(ipv6mr_multiaddr: groupAddress.address.sin6_addr, ipv6mr_interface: 0)
                 try self.socket.setOption(level: .ipv6, name: operation.optionName(level: .ipv6), value: multicastRequest)
-            case (.v4, .some(.v6)), (.v6, .some(.v4)), (.v4, .some(.unixDomainSocket)), (.v6, .some(.unixDomainSocket)):
+            case (.v4, .some(.v6)),
+                 (.v6, .some(.v4)),
+                 (.v4, .some(.unixDomainSocket)),
+                 (.v6, .some(.unixDomainSocket)),
+                 (.v4, .some(.netlinkSocket)),
+                 (.v6, .some(.netlinkSocket)):
                 // Mismatched group and interface address: this is an error.
                 throw ChannelError.badInterfaceAddressFamily
             }

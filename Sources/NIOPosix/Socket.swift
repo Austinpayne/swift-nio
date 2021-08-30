@@ -104,6 +104,8 @@ typealias IOVector = iovec
             return try self.connectSocket(addr: addr.address)
         case .unixDomainSocket(let addr):
             return try self.connectSocket(addr: addr.address)
+        case .netlinkSocket(let addr):
+            return try self.connectSocket(addr: addr.address)
         }
     }
 

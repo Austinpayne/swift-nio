@@ -26,6 +26,7 @@ import struct WinSDK.in_addr_t
 import typealias WinSDK.u_short
 #elseif os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
 import Darwin
+import CNIODarwin
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 import Glibc
 import CNIOLinux
@@ -99,6 +100,18 @@ public enum SocketAddress: CustomStringConvertible {
         }
     }
 
+    /// A single Netlink socket address for `SocketAddress`.
+    public struct NetlinkAddress {
+        private let _storage: Box<sockaddr_nl>
+
+        /// The libc socket address for a Netlink Socket.
+        public var address: sockaddr_nl { return _storage.value }
+
+        fileprivate init(address: sockaddr_nl) {
+            self._storage = Box(address)
+        }
+    }
+
     /// An IPv4 `SocketAddress`.
     case v4(IPv4Address)
 
@@ -107,6 +120,9 @@ public enum SocketAddress: CustomStringConvertible {
 
     /// An UNIX Domain `SocketAddress`.
     case unixDomainSocket(UnixSocketAddress)
+
+    /// A Netlink `SocketAddress`.
+    case netlinkSocket(NetlinkAddress)
 
     /// A human-readable description of this `SocketAddress`. Mostly useful for logging.
     public var description: String {
@@ -135,6 +151,8 @@ public enum SocketAddress: CustomStringConvertible {
             host = nil
             type = "UDS"
             return "[\(type)]\(self.pathname ?? "")"
+        case .netlinkSocket(let addr):
+            return "[NLS]\(addr.address.nl_pid):\(addr.address.nl_groups)"
         }
 
         return "[\(type)]\(host.map { "\($0)/\(addressString):" } ?? "\(addressString):")\(port)"
@@ -154,6 +172,8 @@ public enum SocketAddress: CustomStringConvertible {
             return .inet6
         case .unixDomainSocket:
             return .unix
+        case .netlinkSocket:
+            return .netlink
         }
     }
 
@@ -169,6 +189,8 @@ public enum SocketAddress: CustomStringConvertible {
             // this uses inet_ntop which is documented to only fail if family is not AF_INET or AF_INET6 (or ENOSPC)
             return try! descriptionForAddress(family: .inet6, bytes: &mutAddr, length: Int(INET6_ADDRSTRLEN))
         case .unixDomainSocket(_):
+            return nil
+        case .netlinkSocket:
             return nil
         }
     }
@@ -188,6 +210,8 @@ public enum SocketAddress: CustomStringConvertible {
                 return Int(in_port_t(bigEndian: addr.address.sin6_port))
             case .unixDomainSocket:
                 return nil
+            case .netlinkSocket:
+                return nil
             }
         }
         set {
@@ -202,6 +226,8 @@ public enum SocketAddress: CustomStringConvertible {
                 self = .v6(.init(address: mutAddr, host: addr.host))
             case .unixDomainSocket:
                 precondition(newValue == nil, "attempting to set a non-nil value to a unix socket is not valid")
+            case .netlinkSocket:
+                precondition(newValue == nil, "attempting to set a non-nil value to a netlink socket is not valid")
             }
         }
     }
@@ -222,6 +248,8 @@ public enum SocketAddress: CustomStringConvertible {
                 return String(cString: charPtr)
             }
             return pathname
+        case .netlinkSocket:
+            return nil
         }
     }
 
@@ -236,6 +264,9 @@ public enum SocketAddress: CustomStringConvertible {
             var address = addr.address
             return try address.withSockAddr({ try body($0, $1) })
         case .unixDomainSocket(let addr):
+            var address = addr.address
+            return try address.withSockAddr({ try body($0, $1) })
+        case .netlinkSocket(let addr):
             var address = addr.address
             return try address.withSockAddr({ try body($0, $1) })
         }
@@ -283,6 +314,14 @@ public enum SocketAddress: CustomStringConvertible {
     ///     - addr: the `sockaddr_un` that holds the socket path.
     public init(_ addr: sockaddr_un) {
         self = .unixDomainSocket(.init(address: addr))
+    }
+
+    /// Creates a new Netlink Socket `SocketAddress`.
+    ///
+    /// - parameters:
+    ///     - addr: the `sockaddr_nl` that holds the socket path.
+    public init(_ addr: sockaddr_nl) {
+        self = .netlinkSocket(.init(address: addr))
     }
 
     /// Creates a new UDS `SocketAddress`.
@@ -498,7 +537,14 @@ extension SocketAddress: Equatable {
                     return strncmp(typedSunpath1, typedSunpath2, bufferSize) == 0
                 }
             }
-        case (.v4, _), (.v6, _), (.unixDomainSocket, _):
+        case (.netlinkSocket(let addr1), .netlinkSocket(let addr2)):
+            guard addr1.address.nl_family == addr2.address.nl_family,
+                  addr1.address.nl_pid == addr2.address.nl_pid,
+                  addr1.address.nl_groups == addr2.address.nl_groups else {
+                return false
+            }
+            return true
+        case (.v4, _), (.v6, _), (.unixDomainSocket, _), (.netlinkSocket, _):
             return false
         }
     }
@@ -539,6 +585,11 @@ extension SocketAddress: Hashable {
             withUnsafeBytes(of: v6Addr.address.sin6_addr) {
                 hasher.combine(bytes: $0)
             }
+        case .netlinkSocket(let nls):
+            hasher.combine(3)
+            hasher.combine(nls.address.nl_family)
+            hasher.combine(nls.address.nl_pid)
+            hasher.combine(nls.address.nl_groups)
         }
     }
 }
@@ -565,6 +616,10 @@ extension SocketAddress {
             // so we can just ask for equality on the top byte.
             var v6WireAddress = v6Addr.address.sin6_addr
             return withUnsafeBytes(of: &v6WireAddress) { $0[0] == 0xff }
+        case .netlinkSocket:
+            // NETLINK multicast (nls.address.nl_groups != 0) is not the same
+            // as IP multicast
+            return false
         }
     }
 }
@@ -621,6 +676,15 @@ extension sockaddr_in6: SockAddrProtocol {
 }
 
 extension sockaddr_un: SockAddrProtocol {
+    mutating func withSockAddr<R>(_ body: (UnsafePointer<sockaddr>, Int) throws -> R) rethrows -> R {
+        var me = self
+        return try withUnsafeBytes(of: &me) { p in
+            try body(p.baseAddress!.assumingMemoryBound(to: sockaddr.self), p.count)
+        }
+    }
+}
+
+extension sockaddr_nl: SockAddrProtocol {
     mutating func withSockAddr<R>(_ body: (UnsafePointer<sockaddr>, Int) throws -> R) rethrows -> R {
         var me = self
         return try withUnsafeBytes(of: &me) { p in

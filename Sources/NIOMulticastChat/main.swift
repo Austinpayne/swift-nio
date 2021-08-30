@@ -95,6 +95,8 @@ let datagramChannel = try datagramBootstrap
             return provider.setIPv6MulticastIF(CUnsignedInt(targetDevice.interfaceIndex)).map { channel }
         case .some(.unixDomainSocket):
             preconditionFailure("Should not be possible to create a multicast socket on a unix domain socket")
+        case .some(.netlinkSocket):
+            preconditionFailure("Should not be possible to create a multicast socket on a netlink socket")
         case .none:
             preconditionFailure("Should not be possible to create a multicast socket on an interface without an address")
         }

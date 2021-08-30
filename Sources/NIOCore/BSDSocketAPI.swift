@@ -62,6 +62,7 @@ private let sysInet_ntop: @convention(c) (CInt, UnsafeRawPointer?, UnsafeMutable
 private let sysInet_pton: @convention(c) (CInt, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> CInt = inet_pton
 #elseif os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 import Darwin
+import CNIODarwin
 
 private let sysInet_ntop: @convention(c) (CInt, UnsafeRawPointer?, UnsafeMutablePointer<CChar>?, socklen_t) -> UnsafePointer<CChar>? = inet_ntop
 private let sysInet_pton: @convention(c) (CInt, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> CInt = inet_pton
@@ -170,6 +171,10 @@ extension NIOBSDSocket.AddressFamily {
     /// Unix local to host address.
     public static let unix: NIOBSDSocket.AddressFamily =
             NIOBSDSocket.AddressFamily(rawValue: AF_UNIX)
+
+    /// Address for NETLINK protocol.
+    public static let netlink: NIOBSDSocket.AddressFamily =
+            NIOBSDSocket.AddressFamily(rawValue: AF_NETLINK)
 }
 
 // Protocol Family
@@ -185,6 +190,10 @@ extension NIOBSDSocket.ProtocolFamily {
     /// UNIX local to the host.
     public static let unix: NIOBSDSocket.ProtocolFamily =
             NIOBSDSocket.ProtocolFamily(rawValue: PF_UNIX)
+
+    /// NETLINK protocol.
+    public static let netlink: NIOBSDSocket.ProtocolFamily =
+            NIOBSDSocket.ProtocolFamily(rawValue: PF_NETLINK)
 }
 
 #if !os(Windows)

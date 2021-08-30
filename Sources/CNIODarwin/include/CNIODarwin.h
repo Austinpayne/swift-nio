@@ -50,5 +50,16 @@ void *CNIODarwin_CMSG_DATA_MUTABLE(struct cmsghdr *);
 size_t CNIODarwin_CMSG_LEN(size_t);
 size_t CNIODarwin_CMSG_SPACE(size_t);
 
+// netlink shims
+typedef struct {
+    unsigned short nl_family; /* AF_NETLINK */
+    unsigned short nl_pad;    /* zero */
+    unsigned int nl_pid;      /* port ID */
+    unsigned int nl_groups;   /* multicast groups mask */
+} sockaddr_nl;
+
+#define AF_NETLINK    16
+#define PF_NETLINK AF_NETLINK
+
 #endif  // __APPLE__
 #endif  // C_NIO_DARWIN_H

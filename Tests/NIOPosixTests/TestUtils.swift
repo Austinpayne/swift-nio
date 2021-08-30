@@ -278,6 +278,8 @@ func resolverDebugInformation(eventLoop: EventLoop, host: String, previouslyRece
         case .v6(let sa):
             var addr = sa.address
             return addr.addressDescription()
+        case .netlinkSocket:
+            return "nls"
         }
     }
     let res = GetaddrinfoResolver(loop: eventLoop, aiSocktype: .stream, aiProtocol: CInt(IPPROTO_TCP))
