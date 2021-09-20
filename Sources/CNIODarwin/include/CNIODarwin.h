@@ -38,6 +38,8 @@ extern const int CNIODarwin_IPTOS_ECN_ECT1;
 extern const int CNIODarwin_IPTOS_ECN_CE;
 extern const int CNIODarwin_IPV6_RECVPKTINFO;
 extern const int CNIODarwin_IPV6_PKTINFO;
+extern const int CNIODarwin_IPV6_RECVHOPLIMIT;
+extern const int CNIODarwin_IPV6_HOPLIMIT;
 
 int CNIODarwin_sendmmsg(int sockfd, CNIODarwin_mmsghdr *msgvec, unsigned int vlen, int flags);
 int CNIODarwin_recvmmsg(int sockfd, CNIODarwin_mmsghdr *msgvec, unsigned int vlen, int flags, struct timespec *timeout);

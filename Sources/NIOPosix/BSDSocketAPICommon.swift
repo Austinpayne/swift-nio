@@ -146,6 +146,14 @@ extension NIOBSDSocket.Option {
     /// IPv4 and IPv6.
     static let ip_recv_pktinfo: NIOBSDSocket.Option =
             NIOBSDSocket.Option(rawValue: Posix.IP_RECVPKTINFO)
+
+    /// Request that we are passed the time to live (TTL) when receiving datagrams.
+    ///
+    /// This option is not public as the way to request this is to use
+    /// `ChannelOptions.receiveTTL` which works for both
+    /// IPv4 and IPv6.
+    static let ip_recv_ttl: NIOBSDSocket.Option =
+            NIOBSDSocket.Option(rawValue: Posix.IP_RECVTTL)
 }
 
 // IPv6 Options
@@ -167,6 +175,14 @@ extension NIOBSDSocket.Option {
     /// IPv4 and IPv6.
     static let ipv6_recv_pktinfo: NIOBSDSocket.Option =
         NIOBSDSocket.Option(rawValue: Posix.IPV6_RECVPKTINFO)
+
+    /// Request that we are passed the hop limit when receiving datagrams.
+    ///
+    /// This option is not public as the way to request this is to use
+    /// `ChannelOptions.receiveTTL` which works for both
+    /// IPv4 and IPv6.
+    static let ipv6_recv_hop_limit: NIOBSDSocket.Option =
+            NIOBSDSocket.Option(rawValue: Posix.IPV6_RECVHOPLIMIT)
 }
 
 /// This protocol defines the methods that are expected to be found on

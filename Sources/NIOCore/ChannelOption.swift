@@ -261,6 +261,12 @@ extension ChannelOptions {
             public typealias Value = Bool
             public init() {}
         }
+
+        /// When set to true IP time to live (TTL) or IPv6 hop limit will be reported through `AddressedEnvelope.Metadata` for UDP packets.
+        public struct ReceiveTTL: ChannelOption {
+            public typealias Value = Bool
+            public init() {}
+        }
     }
 }
 
@@ -317,6 +323,9 @@ public struct ChannelOptions {
 
     /// - seealso: `ReceivePacketInfo`
     public static let receivePacketInfo = Types.ReceivePacketInfo()
+
+    /// - seealso: `ReceiveTTL`
+    public static let receiveTTL = Types.ReceiveTTL()
 }
 
 extension ChannelOptions {

@@ -346,8 +346,15 @@ final class ServerSocketChannel: BaseSocketChannel<ServerSocket> {
 ///
 /// Currently, it does not support connected mode which is well worth adding.
 final class DatagramChannel: BaseSocketChannel<Socket> {
-    private var reportExplicitCongestionNotifications = false
-    private var receivePacketInfo = false
+    struct ReceiveOption: OptionSet {
+        let rawValue: Int
+
+        static let ecn        = Self(rawValue: 1 << 0)
+        static let packetInfo = Self(rawValue: 1 << 1)
+        static let ttl        = Self(rawValue: 1 << 2)
+    }
+
+    private var receiveOptions: ReceiveOption = []
 
     // Guard against re-entrance of flushNow() method.
     private let pendingWrites: PendingDatagramWritesManager
@@ -440,12 +447,12 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
             let valueAsInt: CInt = value as! Bool ? 1 : 0
             switch self.localAddress?.protocol {
             case .some(.inet):
-                self.reportExplicitCongestionNotifications = true
+                self.receiveOptions.insert(.ecn)
                 try self.socket.setOption(level: .ip,
                                           name: .ip_recv_tos,
                                           value: valueAsInt)
             case .some(.inet6):
-                self.reportExplicitCongestionNotifications = true
+                self.receiveOptions.insert(.ecn)
                 try self.socket.setOption(level: .ipv6,
                                           name: .ipv6_recv_tclass,
                                           value: valueAsInt)
@@ -457,12 +464,12 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
             let valueAsInt: CInt = value as! Bool ? 1 : 0
             switch self.localAddress?.protocol {
             case .some(.inet):
-                self.receivePacketInfo = true
+                self.receiveOptions.insert(.packetInfo)
                 try self.socket.setOption(level: .ip,
                                           name: .ip_recv_pktinfo,
                                           value: valueAsInt)
             case .some(.inet6):
-                self.receivePacketInfo = true
+                self.receiveOptions.insert(.packetInfo)
                 try self.socket.setOption(level: .ipv6,
                                           name: .ipv6_recv_pktinfo,
                                           value: valueAsInt)
@@ -470,10 +477,48 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
                 // Receiving packet info is only supported for IP
                 throw ChannelError.operationUnsupported
             }
-            break
+        case _ as ChannelOptions.Types.ReceiveTTL:
+            try setIPRecieveOption0(
+                enabled: value as! Bool,
+                ipOption: .ip_recv_ttl,
+                ipv6Option: .ipv6_recv_hop_limit,
+                receiveOption: .ttl
+            )
         default:
             try super.setOption0(option, value: value)
         }
+    }
+
+    /// Helper function for setting `IP*_RECV*` options.
+    private func setIPRecieveOption0(
+        enabled: Bool,
+        ipOption: NIOBSDSocket.Option,
+        ipv6Option: NIOBSDSocket.Option,
+        receiveOption: ReceiveOption
+    ) throws {
+        let valueAsInt: CInt = enabled ? 1 : 0
+        let level: NIOBSDSocket.OptionLevel
+        let option: NIOBSDSocket.Option
+
+        switch self.localAddress?.protocol {
+        case .some(.inet):
+            level = .ip
+            option = ipOption
+        case .some(.inet6):
+            level = .ipv6
+            option = ipv6Option
+        default:
+            // Receiving ttl is only supported for IP
+            throw ChannelError.operationUnsupported
+        }
+
+        if enabled {
+            self.receiveOptions.insert(receiveOption)
+        } else {
+            self.receiveOptions.remove(receiveOption)
+        }
+
+        try self.socket.setOption(level: level, name: option, value: valueAsInt)
     }
 
     override func getOption0<Option: ChannelOption>(_ option: Option) throws -> Option.Value {
@@ -514,6 +559,23 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
                 // Receiving packet info is only supported for IP
                 throw ChannelError.operationUnsupported
             }
+        case _ as ChannelOptions.Types.ReceiveTTL:
+            let level: NIOBSDSocket.OptionLevel
+            let option: NIOBSDSocket.Option
+
+            switch self.localAddress?.protocol {
+            case .some(.inet):
+                level = .ip
+                option = .ip_recv_ttl
+            case .some(.inet6):
+                level = .ipv6
+                option = .ipv6_recv_hop_limit
+            default:
+                // Receiving packet info is only supported for IP
+                throw ChannelError.operationUnsupported
+            }
+
+            return try (self.socket.getOption(level: level, name: option) != 0) as! Option.Value
         default:
             return try super.getOption0(option)
         }
@@ -551,7 +613,7 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
 
         // These control bytes must not escape the current call stack
         let controlBytesBuffer: UnsafeMutableRawBufferPointer
-        if self.reportExplicitCongestionNotifications || self.receivePacketInfo {
+        if !self.receiveOptions.isEmpty {
             controlBytesBuffer = self.selectableEventLoop.controlMessageStorage[0]
         } else {
             controlBytesBuffer = UnsafeMutableRawBufferPointer(start: nil, count: 0)
@@ -579,7 +641,7 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
                 readPending = false
 
                 let metadata: AddressedEnvelope<ByteBuffer>.Metadata?
-                if self.reportExplicitCongestionNotifications || self.receivePacketInfo,
+                if !self.receiveOptions.isEmpty,
                    let controlMessagesReceived = controlBytes.receivedControlMessages {
                     metadata = .init(from: controlMessagesReceived)
                 } else {
@@ -623,7 +685,7 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
             let result = try vectorReadManager.readFromSocket(
                 socket: self.socket,
                 buffer: &buffer,
-                parseControlMessages: self.reportExplicitCongestionNotifications || self.receivePacketInfo)
+                parseControlMessages: !self.receiveOptions.isEmpty)
             switch result {
             case .some(let results, let totalRead):
                 assert(self.isOpen)

@@ -150,6 +150,7 @@ struct UnsafeReceivedControlBytes {
 struct ControlMessageParser {
     var ecnValue: NIOExplicitCongestionNotificationState = .transportNotCapable // Default
     var packetInfo: NIOPacketInfo? = nil
+    var ttl: UInt8 = 0
 
     init(parsing controlMessagesReceived: UnsafeControlMessageCollection) {
         for controlMessage in controlMessagesReceived {
@@ -200,6 +201,10 @@ struct ControlMessageParser {
                                                 interfaceIndex: Int(info.ipi_ifindex))
             }
 
+        } else if controlMessage.type == Posix.IP_TTL {
+            if let data = controlMessage.data {
+                self.ttl = data.load(as: UInt8.self)
+            }
         }
     }
 
@@ -220,6 +225,10 @@ struct ControlMessageParser {
                 addr.sin6_scope_id = 0
                 self.packetInfo = NIOPacketInfo(destinationAddress: SocketAddress(addr, host: ""),
                                                 interfaceIndex: Int(info.ipi6_ifindex))
+            }
+        } else if controlMessage.type == Posix.IPV6_HOPLIMIT {
+            if let data = controlMessage.data {
+                self.ttl = data.load(as: UInt8.self)
             }
         }
     }
@@ -334,6 +343,10 @@ extension AddressedEnvelope.Metadata {
     /// It's assumed the caller has checked that congestion information is required before calling.
     internal init(from controlMessagesReceived: UnsafeControlMessageCollection) {
         let controlMessageReceiver = ControlMessageParser(parsing: controlMessagesReceived)
-        self.init(ecnState: controlMessageReceiver.ecnValue, packetInfo: controlMessageReceiver.packetInfo)
+        self.init(
+            ecnState: controlMessageReceiver.ecnValue,
+            packetInfo: controlMessageReceiver.packetInfo,
+            ttl: controlMessageReceiver.ttl
+        )
     }
 }

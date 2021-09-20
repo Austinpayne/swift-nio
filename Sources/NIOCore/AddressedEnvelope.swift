@@ -39,15 +39,24 @@ public struct AddressedEnvelope<DataType> {
         /// Details of any congestion state.
         public var ecnState: NIOExplicitCongestionNotificationState
         public var packetInfo: NIOPacketInfo?
+        public var ttl: UInt8
         
         public init(ecnState: NIOExplicitCongestionNotificationState) {
             self.ecnState = ecnState
             self.packetInfo = nil
+            self.ttl = 0
         }
 
         public init(ecnState: NIOExplicitCongestionNotificationState, packetInfo: NIOPacketInfo?) {
             self.ecnState = ecnState
             self.packetInfo = packetInfo
+            self.ttl = 0
+        }
+
+        public init(ecnState: NIOExplicitCongestionNotificationState, packetInfo: NIOPacketInfo?, ttl: UInt8) {
+            self.ecnState = ecnState
+            self.packetInfo = packetInfo
+            self.ttl = ttl
         }
     }
 }

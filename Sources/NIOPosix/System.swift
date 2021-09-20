@@ -195,8 +195,12 @@ internal enum Posix {
     static let IPTOS_ECN_CE: CInt = CNIODarwin_IPTOS_ECN_CE
     static let IP_RECVPKTINFO: CInt = CNIODarwin.IP_RECVPKTINFO
     static let IP_PKTINFO: CInt = CNIODarwin.IP_PKTINFO
+    static let IP_RECVTTL: CInt = CNIODarwin.IP_RECVTTL
+    static let IP_TTL: CInt = CNIODarwin.IP_TTL
     static let IPV6_RECVPKTINFO: CInt = CNIODarwin_IPV6_RECVPKTINFO
     static let IPV6_PKTINFO: CInt = CNIODarwin_IPV6_PKTINFO
+    static let IPV6_RECVHOPLIMIT: CInt = CNIODarwin_IPV6_RECVHOPLIMIT
+    static let IPV6_HOPLIMIT: CInt = CNIODarwin_IPV6_HOPLIMIT
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 
     static let UIO_MAXIOV: Int = Int(Glibc.UIO_MAXIOV)
@@ -214,8 +218,12 @@ internal enum Posix {
     static let IPTOS_ECN_CE: CInt = CInt(CNIOLinux.IPTOS_ECN_CE)
     static let IP_RECVPKTINFO: CInt = CInt(CNIOLinux.IP_PKTINFO)
     static let IP_PKTINFO: CInt = CInt(CNIOLinux.IP_PKTINFO)
+    static let IP_RECVTTL: CInt = CInt(CNIOLinux.IP_RECVTTL)
+    static let IP_TTL: CInt = CInt(CNIOLinux.IP_TTL)
     static let IPV6_RECVPKTINFO: CInt = CInt(CNIOLinux.IPV6_RECVPKTINFO)
     static let IPV6_PKTINFO: CInt = CInt(CNIOLinux.IPV6_PKTINFO)
+    static let IPV6_RECVHOPLIMIT: CInt = CInt(CNIOLinux.IPV6_RECVHOPLIMIT)
+    static let IPV6_HOPLIMIT: CInt = CInt(CNIOLinux.IPV6_HOPLIMIT)
 #else
     static var UIO_MAXIOV: Int {
         fatalError("unsupported OS")
