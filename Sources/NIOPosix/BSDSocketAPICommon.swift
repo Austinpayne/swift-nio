@@ -237,7 +237,7 @@ protocol _BSDSocketProtocol {
 
     static func socket(domain af: NIOBSDSocket.ProtocolFamily,
                        type: NIOBSDSocket.SocketType,
-                       `protocol`: CInt) throws -> NIOBSDSocket.Handle
+                       `protocol`: NIOBSDSocket.`Protocol`) throws -> NIOBSDSocket.Handle
 
     static func recvmmsg(socket: NIOBSDSocket.Handle,
                          msgvec: UnsafeMutablePointer<MMsgHdr>,

@@ -275,9 +275,9 @@ internal enum Posix {
     }
 
     @inline(never)
-    internal static func socket(domain: NIOBSDSocket.ProtocolFamily, type: NIOBSDSocket.SocketType, `protocol`: CInt) throws -> CInt {
+    internal static func socket(domain: NIOBSDSocket.ProtocolFamily, type: NIOBSDSocket.SocketType, `protocol`: NIOBSDSocket.`Protocol`) throws -> CInt {
         return try syscall(blocking: false) {
-            return sysSocket(domain.rawValue, type.rawValue, `protocol`)
+            return sysSocket(domain.rawValue, type.rawValue, `protocol`.rawValue)
         }.result
     }
 

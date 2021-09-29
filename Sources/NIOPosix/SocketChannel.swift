@@ -382,9 +382,9 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
         }
     }
 
-    init(eventLoop: SelectableEventLoop, protocolFamily: NIOBSDSocket.ProtocolFamily) throws {
+    init(eventLoop: SelectableEventLoop, protocolFamily: NIOBSDSocket.ProtocolFamily, protocol: NIOBSDSocket.`Protocol` = .none) throws {
         self.vectorReadManager = nil
-        let socket = try Socket(protocolFamily: protocolFamily, type: .datagram)
+        let socket = try Socket(protocolFamily: protocolFamily, type: .datagram, protocol: `protocol`)
         do {
             try socket.setNonBlocking()
         } catch let err {

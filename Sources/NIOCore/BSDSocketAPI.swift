@@ -124,6 +124,23 @@ extension NIOBSDSocket.ProtocolFamily: Hashable {
 }
 
 extension NIOBSDSocket {
+    /// Specifies the protocol that the socket can use.
+    public struct `Protocol`: RawRepresentable {
+        public typealias RawValue = CInt
+        public var rawValue: RawValue
+        public init(rawValue: RawValue) {
+            self.rawValue = rawValue
+        }
+    }
+}
+
+extension NIOBSDSocket.`Protocol`: Equatable {
+}
+
+extension NIOBSDSocket.`Protocol`: Hashable {
+}
+
+extension NIOBSDSocket {
     /// Defines socket option levels.
     public struct OptionLevel: RawRepresentable {
         public typealias RawValue = CInt
@@ -195,6 +212,11 @@ extension NIOBSDSocket.ProtocolFamily {
     }
 #endif
 
+extension NIOBSDSocket.`Protocol` {
+    /// Specifies an empty socket protocol.
+    public static let none: NIOBSDSocket.`Protocol` =
+                .init(rawValue: 0)
+}
 
 // Option Level
 extension NIOBSDSocket.OptionLevel {

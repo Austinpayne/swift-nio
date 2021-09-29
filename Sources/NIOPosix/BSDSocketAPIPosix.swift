@@ -122,7 +122,7 @@ extension NIOBSDSocket {
 
     static func socket(domain af: NIOBSDSocket.ProtocolFamily,
                        type: NIOBSDSocket.SocketType,
-                       `protocol`: CInt) throws -> NIOBSDSocket.Handle {
+                       `protocol`: NIOBSDSocket.`Protocol`) throws -> NIOBSDSocket.Handle {
         return try Posix.socket(domain: af, type: type, protocol: `protocol`)
     }
 
