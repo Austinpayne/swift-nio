@@ -362,7 +362,7 @@ class BaseSocket: BaseSocketProtocol {
     /// - parameters:
     ///     - address: The `SocketAddress` to which the socket should be bound.
     /// - throws: An `IOError` if the operation failed.
-    func bind(to address: SocketAddress) throws {
+    func bind(to address: HasSockAddr) throws {
         try self.withUnsafeHandle { fd in
             func doBind(ptr: UnsafePointer<sockaddr>, bytes: Int) throws {
                 try NIOBSDSocket.bind(socket: fd, address: ptr, address_len: socklen_t(bytes))
@@ -411,3 +411,5 @@ extension BaseSocket: CustomStringConvertible {
         return "BaseSocket { fd=\(self.descriptor) }"
     }
 }
+
+extension SocketAddress: HasSockAddr {}

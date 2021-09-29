@@ -20,7 +20,7 @@ protocol BaseSocketProtocol: CustomStringConvertible {
 
     func close() throws
 
-    func bind(to address: SocketAddress) throws
+    func bind(to address: HasSockAddr) throws
 
     func localAddress() throws -> SocketAddress
 
@@ -67,6 +67,10 @@ protocol SocketProtocol: BaseSocketProtocol {
     func shutdown(how: Shutdown) throws
 
     func ignoreSIGPIPE() throws
+}
+
+protocol HasSockAddr {
+    func withSockAddr<T>(_ body: (UnsafePointer<sockaddr>, Int) throws -> T) rethrows -> T
 }
 
 #if os(Linux) || os(Android)

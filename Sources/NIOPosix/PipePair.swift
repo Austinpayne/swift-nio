@@ -149,7 +149,7 @@ final class PipePair: SocketProtocol {
         try r2.get()
     }
 
-    func bind(to address: SocketAddress) throws {
+    func bind(to address: HasSockAddr) throws {
         throw ChannelError.operationUnsupported
     }
 
