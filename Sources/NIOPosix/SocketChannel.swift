@@ -365,6 +365,9 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
         return super.isOpen
     }
 
+    /// Whether or not reads come through as an `AddressedEnvelope` or plain `ByteBuffer`.
+    var rawMode = false
+
     convenience init(eventLoop: SelectableEventLoop, socket: NIOBSDSocket.Handle) throws {
         let socket = try Socket(socket: socket)
 
@@ -578,19 +581,25 @@ final class DatagramChannel: BaseSocketChannel<Socket> {
                 let mayGrow = recvAllocator.record(actualReadBytes: bytesRead)
                 readPending = false
 
-                let metadata: AddressedEnvelope<ByteBuffer>.Metadata?
-                if self.reportExplicitCongestionNotifications || self.receivePacketInfo,
-                   let controlMessagesReceived = controlBytes.receivedControlMessages {
-                    metadata = .init(from: controlMessagesReceived)
+                let message: NIOAny
+                if rawMode {
+                    message = NIOAny(buffer)
                 } else {
-                    metadata = nil
-                }
+                    let metadata: AddressedEnvelope<ByteBuffer>.Metadata?
+                    if self.reportExplicitCongestionNotifications || self.receivePacketInfo,
+                       let controlMessagesReceived = controlBytes.receivedControlMessages {
+                        metadata = .init(from: controlMessagesReceived)
+                    } else {
+                        metadata = nil
+                    }
 
-                let msg = AddressedEnvelope(remoteAddress: rawAddress.convert(),
-                                            data: buffer,
-                                            metadata: metadata)
+                    let msg = AddressedEnvelope(remoteAddress: rawAddress.convert(),
+                                                data: buffer,
+                                                metadata: metadata)
+                    message = NIOAny(msg)
+                }
                 assert(self.isActive)
-                self.pipeline.syncOperations.fireChannelRead(NIOAny(msg))
+                self.pipeline.syncOperations.fireChannelRead(message)
                 if mayGrow && i < maxMessagesPerRead {
                     buffer = recvAllocator.buffer(allocator: allocator)
                 }
