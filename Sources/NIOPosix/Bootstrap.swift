@@ -1125,3 +1125,113 @@ public final class NIOPipeBootstrap {
         }
     }
 }
+
+#if os(Linux) || os(Android)
+public final class NetlinkBootstrap {
+
+    private let group: EventLoopGroup
+    private var channelInitializer: Optional<ChannelInitializerCallback>
+    @usableFromInline
+    internal var _channelOptions: ChannelOptions.Storage
+
+    /// Create a `NetlinkBootstrap` on the `EventLoopGroup` `group`.
+    ///
+    /// The `EventLoopGroup` `group` must be compatible, otherwise the program will crash. `NetlinkBootstrap` is
+    /// compatible only with `MultiThreadedEventLoopGroup` as well as the `EventLoop`s returned by
+    /// `MultiThreadedEventLoopGroup.next`. See `init(validatingGroup:)` for a fallible initializer for
+    /// situations where it's impossible to tell ahead of time if the `EventLoopGroup` is compatible or not.
+    ///
+    /// - parameters:
+    ///     - group: The `EventLoopGroup` to use.
+    public convenience init(group: EventLoopGroup) {
+        guard NIOOnSocketsBootstraps.isCompatible(group: group) else {
+            preconditionFailure("NetlinkBootstrap is only compatible with MultiThreadedEventLoopGroup and " +
+                                "SelectableEventLoop. You tried constructing one with \(group) which is incompatible.")
+        }
+        self.init(validatingGroup: group)!
+    }
+
+    /// Create a `NetlinkBootstrap` on the `EventLoopGroup` `group`, validating that `group` is compatible.
+    ///
+    /// - parameters:
+    ///     - group: The `EventLoopGroup` to use.
+    public init?(validatingGroup group: EventLoopGroup) {
+        guard NIOOnSocketsBootstraps.isCompatible(group: group) else {
+            return nil
+        }
+        self._channelOptions = ChannelOptions.Storage()
+        self.group = group
+        self.channelInitializer = nil
+    }
+
+    /// Initialize the bound `NetlinkBootstrap` with `initializer`. The most common task in initializer is to add
+    /// `ChannelHandler`s to the `ChannelPipeline`.
+    ///
+    /// - parameters:
+    ///     - handler: A closure that initializes the provided `Channel`.
+    public func channelInitializer(_ handler: @escaping (Channel) -> EventLoopFuture<Void>) -> Self {
+        self.channelInitializer = handler
+        return self
+    }
+
+    /// Bind the `NetlinkBootstrap` to `address`.
+    ///
+    /// - parameters:
+    ///     - address: The `SocketAddress.Netlink` to bind on.
+    public func bind<Groups>(address: SocketAddress.Netlink<Groups>) -> EventLoopFuture<Channel> {
+        func makeChannel(_ eventLoop: SelectableEventLoop) throws -> DatagramChannel {
+            let channel =  try DatagramChannel(eventLoop: eventLoop,
+                                       protocolFamily: address.family.protocolFamily,
+                                       protocol: address.family.protocol)
+            channel.rawMode = true
+            return channel
+        }
+        return bind0(makeChannel: makeChannel) { (eventLoop, channel) in
+            do {
+                try channel.socket.bind(to: address)
+            } catch {
+                return eventLoop.makeFailedFuture(error)
+            }
+
+            let promise = eventLoop.makePromise(of: Void.self)
+            channel.registerAlreadyConfigured0(promise: promise)
+            return promise.futureResult
+        }
+    }
+
+    private func bind0(makeChannel: (_ eventLoop: SelectableEventLoop) throws -> DatagramChannel, _ registerAndBind: @escaping (EventLoop, DatagramChannel) -> EventLoopFuture<Void>) -> EventLoopFuture<Channel> {
+        let eventLoop = self.group.next()
+        let channelInitializer = self.channelInitializer ?? { _ in eventLoop.makeSucceededFuture(()) }
+        let channelOptions = self._channelOptions
+
+        let channel: DatagramChannel
+        do {
+            channel = try makeChannel(eventLoop as! SelectableEventLoop)
+        } catch {
+            return eventLoop.makeFailedFuture(error)
+        }
+
+        func setupChannel() -> EventLoopFuture<Channel> {
+            eventLoop.assertInEventLoop()
+            return channelOptions.applyAllChannelOptions(to: channel).flatMap {
+                channelInitializer(channel)
+            }.flatMap {
+                eventLoop.assertInEventLoop()
+                return registerAndBind(eventLoop, channel)
+            }.map {
+                channel
+            }.flatMapError { error in
+                eventLoop.makeFailedFuture(error)
+            }
+        }
+
+        if eventLoop.inEventLoop {
+            return setupChannel()
+        } else {
+            return eventLoop.flatSubmit {
+                setupChannel()
+            }
+        }
+    }
+}
+#endif

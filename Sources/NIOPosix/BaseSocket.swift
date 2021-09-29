@@ -130,6 +130,18 @@ extension sockaddr_storage {
             fatalError("unknown sockaddr family \(self.ss_family)")
         }
     }
+
+    /// Checks whether we will be able to convert the `socketaddr_storage` to a `SocketAddress`.
+    mutating func canConvert() -> Bool {
+        switch NIOBSDSocket.AddressFamily(rawValue: CInt(self.ss_family)) {
+        case .inet, .inet6, .unix: return true
+        #if os(Linux) || os(Android)
+        case .netlink: return false
+        #endif
+        default:
+            fatalError("unknown sockaddr family \(self.ss_family)")
+        }
+    }
 }
 
 /// A helper extension for working with sockaddr pointers.
@@ -201,7 +213,11 @@ class BaseSocket: BaseSocketProtocol {
                 try body($0, addressPtr, &size)
             }
         }
-        return addr.convert()
+        if addr.canConvert() {
+            return addr.convert()
+        }
+
+        throw ChannelError.operationUnsupported
     }
 
     /// Create a new socket and return the file descriptor of it.
@@ -413,3 +429,7 @@ extension BaseSocket: CustomStringConvertible {
 }
 
 extension SocketAddress: HasSockAddr {}
+
+#if os(Linux) || os(Android)
+extension SocketAddress.Netlink: HasSockAddr {}
+#endif

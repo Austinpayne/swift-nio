@@ -189,6 +189,14 @@ extension NIOBSDSocket.AddressFamily {
             NIOBSDSocket.AddressFamily(rawValue: AF_UNIX)
 }
 
+#if os(Linux) || os(Android)
+    extension NIOBSDSocket.AddressFamily {
+        /// Linux kernel netlink protocol.
+        public static let netlink: NIOBSDSocket.AddressFamily =
+                NIOBSDSocket.AddressFamily(rawValue: AF_NETLINK)
+    }
+#endif
+
 // Protocol Family
 extension NIOBSDSocket.ProtocolFamily {
     /// IP network 4 protocol.
@@ -209,6 +217,14 @@ extension NIOBSDSocket.ProtocolFamily {
         /// UNIX local to the host, alias for `PF_UNIX` (`.unix`)
         public static let local: NIOBSDSocket.ProtocolFamily =
                 NIOBSDSocket.ProtocolFamily(rawValue: PF_LOCAL)
+    }
+#endif
+
+#if os(Linux) || os(Android)
+    extension NIOBSDSocket.ProtocolFamily {
+        /// Linux kernel netlink protocol.
+        public static let netlink: NIOBSDSocket.ProtocolFamily =
+                NIOBSDSocket.ProtocolFamily(rawValue: PF_NETLINK)
     }
 #endif
 
